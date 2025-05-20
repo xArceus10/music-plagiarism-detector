@@ -1,0 +1,8 @@
+flask
+openl3
+soundfile
+faiss-cpu
+spotipy
+requests
+numpy
+scikit-learn
