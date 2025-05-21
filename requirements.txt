@@ -1,8 +1,9 @@
-flask
-openl3
-soundfile
-faiss-cpu
-spotipy
-requests
-numpy
-scikit-learn
+flask~=3.1.1
+openl3~=0.4.2
+soundfile~=0.13.1
+faiss-cpu~=1.11.0
+spotipy~=2.25.1
+requests~=2.32.3
+numpy~=2.1.3
+scikit-learn~=1.6.1
+utils~=1.0.2

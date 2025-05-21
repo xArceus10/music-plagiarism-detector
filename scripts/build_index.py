@@ -3,12 +3,29 @@
 import os
 import numpy as np
 import faiss
+# scripts/build_index.py
+
+import os
+import sys  # Add this import
+
+# Get root directory dynamically
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
+
+import numpy as np
+import faiss
 from utils.openl3_utils import extract_openl3_embedding
 
-# Constants
-PREVIEW_DIR = "data/spotify_previews"
-INDEX_PATH = "data/music_index.faiss"
-TRACK_LIST_PATH = "data/track_names.txt"
+import os
+
+# Get root directory dynamically
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Define absolute paths based on project root
+PREVIEW_DIR = os.path.join(ROOT_DIR, "data", "spotify_previews")
+INDEX_PATH = os.path.join(ROOT_DIR, "data", "music_index.faiss")
+TRACK_LIST_PATH = os.path.join(ROOT_DIR, "data", "track_names.txt")
+
 EMBEDDING_DIM = 512  # OpenL3 default for music
 
 def build_index():
