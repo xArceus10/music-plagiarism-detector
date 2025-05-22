@@ -31,11 +31,11 @@ async function downloadPreview(name, url) {
 
 async function searchSongs() {
   const songsToSearch = [
-    'Bohemian Rhapsody Queen',
-    'Hotel California Eagles',
-    'Imagine John Lennon',
-    'Shape of You Ed Sheeran',
-    'Blinding Lights The Weeknd'
+    'After Hours The Weeknd',
+    'Radioactive Imagine Dragons',
+    'Attention Charlie Puth',
+    'Photographs Ed Sheeran',
+    'Starboy The Weeknd'
   ];
 
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });

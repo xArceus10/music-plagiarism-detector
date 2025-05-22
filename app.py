@@ -8,14 +8,14 @@ import numpy as np
 app = Flask(__name__)
 
 # Load FAISS index and track names
-index = faiss.read_index("data/music_index.faiss")
-with open("data/track_names.txt", "r") as f:
+index = faiss.read_index("scripts/data/music_index.faiss")
+with open("scripts/data/track_names.txt", "r") as f:
     names = [line.strip() for line in f.readlines()]
 
 @app.route('/upload', methods=['POST'])
 def upload():
     file = request.files['audio']
-    file_path = "data/uploaded.mp3"
+    file_path = "scripts/data/uploaded.mp3"
     file.save(file_path)
 
     user_vector = extract_openl3_embedding(file_path)
