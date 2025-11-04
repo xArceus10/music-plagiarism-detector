@@ -1,10 +1,10 @@
-// fetch_previews.js
+
 const spotifyPreviewFinder = require('spotify-preview-finder');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// Set your Spotify credentials
+
 process.env.SPOTIFY_CLIENT_ID = 'ea94426a8cc841778b76c6b9868112df';
 process.env.SPOTIFY_CLIENT_SECRET = 'b11df25a3393472da6a5de36ecc83a8e';
 
@@ -31,11 +31,8 @@ async function downloadPreview(name, url) {
 
 async function searchSongs() {
   const songsToSearch = [
-    'After Hours The Weeknd',
-    'Radioactive Imagine Dragons',
-    'Attention Charlie Puth',
-    'Photographs Ed Sheeran',
-    'Starboy The Weeknd'
+    'American Wedding Frank Ocean',
+      'Hotel california Eagles'
   ];
 
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -48,17 +45,17 @@ async function searchSongs() {
         const previewUrl = song.previewUrls[0];
 
         if (previewUrl) {
-          console.log(`✅ Found: ${song.name} - Downloading preview...`);
+          console.log(` Found: ${song.name} - Downloading preview...`);
           const path = await downloadPreview(song.name, previewUrl);
-          console.log(`🎵 Saved to: ${path}`);
+          console.log(` Saved to: ${path}`);
         } else {
-          console.log(`⚠️ No preview found for: ${songQuery}`);
+          console.log(` No preview found for: ${songQuery}`);
         }
       } else {
-        console.log(`❌ No results found for: ${songQuery}`);
+        console.log(` No results found for: ${songQuery}`);
       }
     } catch (err) {
-      console.error(`❌ Error processing ${songQuery}: ${err.message}`);
+      console.error(` Error processing ${songQuery}: ${err.message}`);
     }
   }
 }

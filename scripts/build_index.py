@@ -1,4 +1,4 @@
-# scripts/build_index.py
+
 
 import os
 import numpy as np
@@ -6,9 +6,9 @@ import faiss
 # scripts/build_index.py
 
 import os
-import sys  # Add this import
+import sys
 
-# Get root directory dynamically
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
@@ -18,64 +18,54 @@ from utils.openl3_utils import extract_openl3_embedding
 
 import os
 
-# Get root directory dynamically
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Define absolute paths based on project root
-PREVIEW_DIR = os.path.join(ROOT_DIR, "data", "spotify_previews")
+
+SONGS_DIR = os.path.join(ROOT_DIR, "data", "spotify_previews")
 INDEX_PATH = os.path.join(ROOT_DIR, "data", "music_index.faiss")
 TRACK_LIST_PATH = os.path.join(ROOT_DIR, "data", "track_names.txt")
+EMBEDDINGS_PATH = os.path.join(ROOT_DIR, "data", "music_embeddings.npy")
 
-EMBEDDING_DIM = 512  # OpenL3 default for music
 
-def build_index():
-    print("[1] Scanning local previews...")
+songs = [f for f in os.listdir(SONGS_DIR) if f.lower().endswith(".mp3")]
+print(f" Found {len(songs)} songs in {SONGS_DIR}")
 
-    # Collect all .mp3 files
-    audio_files = [
-        os.path.join(PREVIEW_DIR, f)
-        for f in os.listdir(PREVIEW_DIR)
-        if f.lower().endswith(".mp3")
-    ]
+embeddings = []
+track_names = []
 
-    if not audio_files:
-        print("❌ No preview files found in:", PREVIEW_DIR)
-        return
+for song in songs:
+    full_path = os.path.join(SONGS_DIR, song)
+    try:
+        emb = extract_openl3_embedding(full_path).astype("float32")
+        embeddings.append(emb)
+        track_names.append(song)
+        print(f" Processed: {song}")
+    except Exception as e:
+        print(f" Failed to process {song}: {e}")
 
-    print(f"✅ Found {len(audio_files)} files. Extracting embeddings...")
 
-    vectors = []
-    names = []
+if not embeddings:
+    print(" No embeddings were extracted. Exiting.")
+    exit(1)
 
-    for path in audio_files:
-        name = os.path.basename(path)
-        print(f"🎵 Processing: {name}")
+all_embeddings = np.array(embeddings).astype("float32")
 
-        try:
-            emb = extract_openl3_embedding(path)
-            vectors.append(emb)
-            names.append(name)
-        except Exception as e:
-            print(f"⚠️ Skipping {name} — error: {e}")
 
-    if not vectors:
-        print("❌ No embeddings extracted. Aborting.")
-        return
+dims = all_embeddings.shape[1]
+index = faiss.IndexFlatL2(dims)
+index.add(all_embeddings)
 
-    print("[2] Building FAISS index...")
-    vector_array = np.vstack(vectors).astype('float32')
-    index = faiss.IndexFlatL2(EMBEDDING_DIM)
-    index.add(vector_array)
 
-    print(f"[3] Saving FAISS index → {INDEX_PATH}")
-    faiss.write_index(index, INDEX_PATH)
+faiss.write_index(index, INDEX_PATH)
+print(f" Saved FAISS index to {INDEX_PATH}")
 
-    print(f"[4] Saving track names → {TRACK_LIST_PATH}")
-    with open(TRACK_LIST_PATH, "w", encoding="utf-8") as f:
-        for name in names:
-            f.write(name + "\n")
 
-    print("✅ Done. Index built successfully.")
+np.save(EMBEDDINGS_PATH, all_embeddings)
+print(f" Saved embeddings to {EMBEDDINGS_PATH}")
 
-if __name__ == "__main__":
-    build_index()
+
+with open(TRACK_LIST_PATH, "w", encoding="utf-8") as f:
+    for name in track_names:
+        f.write(name + "\n")
+print(f" Saved track names to {TRACK_LIST_PATH}")

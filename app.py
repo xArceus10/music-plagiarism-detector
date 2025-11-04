@@ -1,38 +1,36 @@
-from flask import Flask, request
+from flask import Flask, request, render_template
 from utils.openl3_utils import extract_openl3_embedding
 from utils.vector_index import search_faiss
 from utils.human_report import generate_human_report
-import faiss
 import numpy as np
 
 app = Flask(__name__)
 
-# Load FAISS index and track names
-index = faiss.read_index("scripts/data/music_index.faiss")
-with open("scripts/data/track_names.txt", "r") as f:
-    names = [line.strip() for line in f.readlines()]
+@app.route("/")
+def home():
+    return render_template("index.html")
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    file = request.files['audio']
-    file_path = "scripts/data/uploaded.mp3"
-    file.save(file_path)
+@app.route('/compare', methods=['POST'])
+def compare():
+    ref_file = request.files['ref']
+    test_file = request.files['test']
 
-    user_vector = extract_openl3_embedding(file_path)
-    query = np.array(user_vector, dtype='float32').reshape(1, -1)
-    D, I = index.search(query, k=3)
+    ref_path = "scripts/data/ref_song.mp3"
+    test_path = "scripts/data/test_song.mp3"
 
-    matches = [
-        {
-            "title": names[i],
-            "distance_score": float(D[0][j]),
-            "similarity_score": 1 - float(D[0][j]) / np.max(D)
-        }
-        for j, i in enumerate(I[0])
-    ]
+    ref_file.save(ref_path)
+    test_file.save(test_path)
 
-    report = generate_human_report(file.filename, matches)
-    return report, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    ref_vector = extract_openl3_embedding(ref_path)
+    test_vector = extract_openl3_embedding(test_path)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    ref_vector = np.array(ref_vector, dtype='float32').reshape(1, -1)
+    test_vector = np.array(test_vector, dtype='float32').reshape(1, -1)
+
+    dot = np.dot(ref_vector, test_vector.T)[0][0]
+    norm = np.linalg.norm(ref_vector) * np.linalg.norm(test_vector)
+    similarity = float(dot / norm)
+
+    return {"similarity_score": round(similarity * 100, 2)}, 200
+
+if __name__ == "__main__": app.run(debug=True)

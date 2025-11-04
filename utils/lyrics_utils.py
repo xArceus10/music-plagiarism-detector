@@ -1,8 +1,29 @@
-from sentence_transformers import SentenceTransformer
+
+import os
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer('all-MiniLM-L6-v2')  # Light and fast
+_MODEL = None
+_MODEL_NAME = "all-MiniLM-L6-v2"
 
-def extract_lyrics_embedding(lyrics_text):
-    embedding = model.encode([lyrics_text], convert_to_tensor=False)
-    return np.array(embedding).astype('float32')
+def load_model():
+    global _MODEL
+    if _MODEL is None:
+        _MODEL = SentenceTransformer(_MODEL_NAME)
+    return _MODEL
+
+def embed_text(text, normalize=True):
+
+    model = load_model()
+    vec = model.encode(text, show_progress_bar=False, convert_to_numpy=True)
+    vec = vec.astype("float32")
+    if normalize:
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+    return vec
+
+def embed_file(path, normalize=True):
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    return embed_text(text, normalize=normalize)
