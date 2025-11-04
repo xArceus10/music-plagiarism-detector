@@ -6,21 +6,20 @@ import faiss
 from utils.openl3_utils import extract_openl3_embedding
 from utils.lyrics_utils import embed_text
 
-# Paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOADS_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "data", "uploads")
 
-# Audio FAISS index
+
 AUDIO_INDEX_PATH = os.path.join(os.path.dirname(SCRIPT_DIR), "data", "music_index.faiss")
 AUDIO_TRACKS_PATH = os.path.join(os.path.dirname(SCRIPT_DIR), "data", "track_names.txt")
 
-# Lyrics FAISS index
+
 LYRICS_INDEX_PATH = os.path.join(os.path.dirname(SCRIPT_DIR), "data", "lyrics_index.faiss")
 LYRICS_TRACKS_PATH = os.path.join(os.path.dirname(SCRIPT_DIR), "data", "lyrics_track_names.txt")
 
 TOP_K = 5  # number of top results
 
-# Load FAISS indices
+
 def load_index(index_path, names_path):
     if not os.path.exists(index_path) or not os.path.exists(names_path):
         raise FileNotFoundError(f"Index or track names file missing: {index_path}, {names_path}")
@@ -29,7 +28,7 @@ def load_index(index_path, names_path):
         names = [line.strip() for line in f]
     return index, names
 
-# Query audio
+
 def query_audio(file_path, index, track_names, top_k=TOP_K):
     emb = extract_openl3_embedding(file_path).astype("float32").reshape(1, -1)
     D, I = index.search(emb, top_k)
@@ -39,7 +38,7 @@ def query_audio(file_path, index, track_names, top_k=TOP_K):
             results.append((track_names[idx], float(dist)))
     return results
 
-# Query lyrics
+
 def query_lyrics(file_path, index, track_names, top_k=TOP_K):
     if not os.path.exists(file_path):
         print(f"No lyrics file found for {file_path}, skipping lyrics similarity.")
@@ -54,7 +53,7 @@ def query_lyrics(file_path, index, track_names, top_k=TOP_K):
             results.append((track_names[idx], float(dist)))
     return results
 
-# Hybrid ranking
+
 def combine_results(audio_results, lyrics_results, alpha=0.5):
     # Normalize distances to similarities (smaller distance = higher similarity)
     audio_sim = {name: 1/(dist+1e-6) for name, dist in audio_results}

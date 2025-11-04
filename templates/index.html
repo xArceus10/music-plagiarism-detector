@@ -1,124 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Music Similarity Checker</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #1f2937, #111827);
-      color: #f9fafb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .container {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 30px;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 500px;
-      text-align: center;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-    h1 {
-      margin-bottom: 20px;
-    }
-    .file-input {
-      margin: 15px 0;
-    }
-    input[type="file"] {
-      display: block;
-      margin: auto;
-      padding: 10px;
-      border-radius: 8px;
-      background: #374151;
-      color: #f9fafb;
-      border: none;
-      cursor: pointer;
-    }
-    button {
-      margin-top: 20px;
-      padding: 12px 18px;
-      background: #7c3aed;
-      color: white;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #6d28d9;
-    }
-    .result {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: bold;
-    }
-    .meter {
-      margin-top: 12px;
-      height: 18px;
-      background: #374151;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .meter-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #7c3aed, #06b6d4);
-      transition: width 0.6s ease;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Music Plagiarism Checker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="container">
-    <h1>🎵 Music Similarity Checker</h1>
-    <div class="file-input">
-      <label>Upload Reference Song</label>
-      <input type="file" id="refFile" accept="audio/*">
+    <div class="container">
+        <h1>🎵 Music Plagiarism Detector</h1>
+        <form id="uploadForm">
+            <label>Upload Audio (.mp3):</label>
+            <input type="file" id="audio" name="audio" accept=".mp3" required>
+
+            <label>Upload Lyrics (.txt) (optional):</label>
+            <input type="file" id="lyrics" name="lyrics" accept=".txt">
+
+            <button type="submit">Analyze</button>
+        </form>
+
+        <div id="loading" style="display: none;">Analyzing... ⏳</div>
+
+        <div id="result" class="result-card" style="display:none;">
+            <h2>Results</h2>
+            <div class="bar">
+                <span>Audio Similarity</span>
+                <div class="progress"><div id="audio-bar"></div></div>
+                <p id="audio-val"></p>
+            </div>
+
+            <div class="bar">
+                <span>Lyrics Similarity</span>
+                <div class="progress"><div id="lyrics-bar"></div></div>
+                <p id="lyrics-val"></p>
+            </div>
+
+            <div class="bar">
+                <span>Hybrid Similarity</span>
+                <div class="progress"><div id="hybrid-bar"></div></div>
+                <p id="hybrid-val"></p>
+            </div>
+
+            <h3 id="decision"></h3>
+        </div>
     </div>
-    <div class="file-input">
-      <label>Upload Song to Compare</label>
-      <input type="file" id="testFile" accept="audio/*">
-    </div>
-    <button onclick="compareSongs()">Compare Songs</button>
-    <div class="result" id="result">Similarity: —</div>
-    <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
-  </div>
 
-  <script>
-    async function compareSongs() {
-      const refFile = document.getElementById('refFile').files[0];
-      const testFile = document.getElementById('testFile').files[0];
-      if (!refFile || !testFile) {
-        alert("Please select both files!");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('ref', refFile);
-      formData.append('test', testFile);
-
-      document.getElementById('result').innerText = "Processing...";
-
-      try {
-        const res = await fetch('/compare', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await res.json();
-        const score = data.similarity_score;
-        document.getElementById('result').innerText = Similarity: ${score}%;
-        document.getElementById('meterFill').style.width = score + "%";
-      } catch (err) {
-        console.error(err);
-        alert("Error comparing songs.");
-      }
-    }
-  </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

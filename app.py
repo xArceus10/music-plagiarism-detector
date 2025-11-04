@@ -1,36 +1,35 @@
-from flask import Flask, request, render_template
-from utils.openl3_utils import extract_openl3_embedding
-from utils.vector_index import search_faiss
-from utils.human_report import generate_human_report
-import numpy as np
+from flask import Flask, render_template, request, jsonify
+import os
+from scripts.check_hybrid_simf import hybrid_check
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'data', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-@app.route('/compare', methods=['POST'])
-def compare():
-    ref_file = request.files['ref']
-    test_file = request.files['test']
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    ref_path = "scripts/data/ref_song.mp3"
-    test_path = "scripts/data/test_song.mp3"
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    audio_file = request.files.get('audio')
+    lyrics_file = request.files.get('lyrics')
 
-    ref_file.save(ref_path)
-    test_file.save(test_path)
+    if not audio_file:
+        return jsonify({'error': 'No audio file uploaded!'}), 400
 
-    ref_vector = extract_openl3_embedding(ref_path)
-    test_vector = extract_openl3_embedding(test_path)
+    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_file.filename)
+    audio_file.save(audio_path)
 
-    ref_vector = np.array(ref_vector, dtype='float32').reshape(1, -1)
-    test_vector = np.array(test_vector, dtype='float32').reshape(1, -1)
+    lyrics_path = None
+    if lyrics_file:
+        lyrics_path = os.path.join(app.config['UPLOAD_FOLDER'], lyrics_file.filename)
+        lyrics_file.save(lyrics_path)
 
-    dot = np.dot(ref_vector, test_vector.T)[0][0]
-    norm = np.linalg.norm(ref_vector) * np.linalg.norm(test_vector)
-    similarity = float(dot / norm)
+    result = hybrid_check(audio_path, lyrics_path)
+    return jsonify(result)
 
-    return {"similarity_score": round(similarity * 100, 2)}, 200
-
-if __name__ == "__main__": app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
