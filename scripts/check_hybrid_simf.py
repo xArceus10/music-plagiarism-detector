@@ -9,7 +9,7 @@ sys.path.append(ROOT_DIR)
 
 # --- Import correct functions ---
 from scripts.check_audio_sim import check_song as check_audio
-from scripts.check_lyrics_sim import query_file as check_lyrics
+from scripts.check_lyrics_similarity import query_file as check_lyrics
 
 UPLOADS_DIR = os.path.join(ROOT_DIR, "data", "uploads")
 
