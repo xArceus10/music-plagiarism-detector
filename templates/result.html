@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --light-gray: #f8f9fa;
+            --dark-gray: #343a40;
+            --white: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --red: #dc3545;
+            --orange: #fd7e14;
+            --yellow: #ffc107;
+            --green: #28a745;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--light-gray);
+            color: var(--dark-gray);
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: var(--white);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid #e9ecef;
+        }
+        h1 {
+            text-align: center;
+            color: var(--dark-gray);
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 1rem;
+            margin-top: 0;
+        }
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+            color: #495057;
+        }
+        .decision {
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-size: 1.25em;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid;
+        }
+        .decision.red { background: #fdf2f2; border-color: #f7d4d4; color: #a12020; }
+        .decision.orange { background: #fff8f0; border-color: #ffedd1; color: #bc5c00; }
+        .decision.yellow { background: #fffdef; border-color: #fff7c7; color: #7a5c00; }
+        .decision.green { background: #f0faf4; border-color: #cfeede; color: #1e6433; }
+
+        .summary-scores {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .score-box {
+            background: var(--light-gray);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .score-box h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .score-box p {
+            font-size: 2.5em;
+            font-weight: 600;
+            margin: 0;
+            line-height: 1.2;
+.score-box-main h3 { color: var(--primary-color); }
+        .score-box-main p { color: var(--primary-color); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px 15px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        tbody tr:nth-child(even) {
+            background: #fcfcfc;
+        }
+        tbody tr td:first-child {
+            font-weight: 500;
+        }
+
+        pre {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.875rem;
+        }
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Analysis Results</h1>
+        <div class="decision {{ decision_color }}">
+            <strong>{{ result.hybrid_decision }}</strong>
+        </div>
+
+        <div class="summary-scores">
+            <div class="score-box score-box-main">
+                <h3>Hybrid Score</h3>
+                <p>{{ result.hybrid_score_percent }}%</p>
+            </div>
+            <div class="score-box">
+                <h3>Audio Score</h3>
+                <p>{{ result.audio_score_percent }}%</p>
+            </div>
+            <div class="score-box">
+                <h3>Lyrics Score</h3>
+                <p>{{ result.lyrics_score_percent }}%</p>
+            </div>
+        </div>
+
+        <h2>Top 5 Matches</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Song</th>
+                    <th>Hybrid Score</th>
+                    <th>Audio Score</th>
+                    <th>Lyrics Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for match in result.top5_results %}
+                <tr>
+                    <td>{{ match.song }}</td>
+                    <td>{{ match.hybrid_score_percent }}%</td>
+                    <td>{{ match.audio_score_percent }}%</td>
+                    <td>{{ match.lyrics_score_percent }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <br><br>
+        <a href="/">&#8592; Check another song</a>
+
+        <h2>Full JSON Output</h2>
+        <pre>{{ raw_json }}</pre>
+    </div>
+</body>
+</html>

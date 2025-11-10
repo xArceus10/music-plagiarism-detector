@@ -8,7 +8,7 @@ const path = require('path');
 process.env.SPOTIFY_CLIENT_ID = 'ea94426a8cc841778b76c6b9868112df';
 process.env.SPOTIFY_CLIENT_SECRET = 'b11df25a3393472da6a5de36ecc83a8e';
 
-const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'spotify_previews');
+const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'uploads');
 
 async function downloadPreview(name, url) {
   const safeName = name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -31,8 +31,8 @@ async function downloadPreview(name, url) {
 
 async function searchSongs() {
   const songsToSearch = [
-    'American Wedding Frank Ocean',
-      'Hotel california Eagles'
+    'Radio Bershy',
+      'One More Light Linkin Park'
   ];
 
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });

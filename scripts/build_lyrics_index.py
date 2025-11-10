@@ -1,16 +1,22 @@
-
 import os
+import sys
 import numpy as np
 import faiss
 from tqdm import tqdm
+
+# Add project root to path so we can import utils.*
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 from utils.lyrics_utils import embed_file
 
+# --- Path Configuration ---
+# Note: Changed to use ROOT_DIR for consistency with your other scripts.
+LYRICS_DIR = os.path.join(ROOT_DIR, "data", "lyrics")
+INDEX_PATH = os.path.join(ROOT_DIR, "data", "lyrics_index.faiss")
+NAMES_PATH = os.path.join(ROOT_DIR, "data", "lyrics_track_names.txt")
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
-LYRICS_DIR = os.path.join(BASE_DIR, "lyrics")
-INDEX_PATH = os.path.join(BASE_DIR, "lyrics_index.faiss")
-NAMES_PATH = os.path.join(BASE_DIR, "lyrics_track_names.txt")
 
 def build_index():
     if not os.path.exists(LYRICS_DIR):
@@ -28,7 +34,9 @@ def build_index():
     for fname in tqdm(files, desc="Embedding lyrics"):
         path = os.path.join(LYRICS_DIR, fname)
         try:
-            vec = embed_file(path)
+            vec = embed_file(path)  # Assumes this returns a 1D numpy array
+            if vec.ndim == 2:  # Handle cases where embed_file might return [[...]]
+                vec = vec.flatten()
             vectors.append(vec)
             names.append(fname)
         except Exception as e:
@@ -41,9 +49,17 @@ def build_index():
     X = np.vstack(vectors).astype('float32')
     dim = X.shape[1]
 
+    # -----------------------------------------------------------------
+    # !!! HERE IS THE CRITICAL FIX !!!
+    # You MUST normalize the vectors for IndexFlatIP to equal cosine similarity.
+    print("Normalizing vectors for IndexFlatIP...")
+    X_normalized = X / (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12)
+    # -----------------------------------------------------------------
 
     index = faiss.IndexFlatIP(dim)
-    index.add(X)
+
+    # Add the NORMALIZED vectors to the index
+    index.add(X_normalized)
 
     faiss.write_index(index, INDEX_PATH)
 
@@ -51,8 +67,9 @@ def build_index():
         for n in names:
             f.write(n + "\n")
 
-    print("Saved lyrics index to", INDEX_PATH)
-    print("Saved names to", NAMES_PATH)
+    print(f"\nSuccessfully built and saved lyrics index to {INDEX_PATH}")
+    print(f"Saved {len(names)} track names to {NAMES_PATH}")
+
 
 if __name__ == "__main__":
     build_index()

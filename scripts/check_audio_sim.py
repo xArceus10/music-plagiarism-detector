@@ -10,31 +10,23 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from utils.openl3_utils import extract_openl3_embedding  # must return normalized 1D np.array
+from utils.openl3_utils import extract_openl3_embedding
 
 # --- CONFIG ---
 UPLOADS_DIR = os.path.join(ROOT_DIR, "data", "uploads")
 PREVIEWS_DIR = os.path.join(ROOT_DIR, "data", "spotify_previews")
 INDEX_PATH = os.path.join(ROOT_DIR, "data", "music_index.faiss")
-EMBEDDINGS_PATH = os.path.join(ROOT_DIR, "data", "music_embeddings.npy")
 TRACK_LIST_PATH = os.path.join(ROOT_DIR, "data", "track_names.txt")
+STATS_PATH = os.path.join(ROOT_DIR, "data", "audio_stats.npz")
 
 TOP_K = 5
 WEIGHT_AUDIO = 0.7
 WEIGHT_MELODY = 0.3
-Z_THRESHOLD = 2.0  # standard deviation threshold for outliers
+Z_THRESHOLD = 2.0
+MELODY_CHECK_LIMIT = 5  # Only run slow DTW for the top N matches
+
 
 # --- Utility Functions ---
-
-
-def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
-    a = a.flatten()
-    b = b.flatten()
-    denom = (np.linalg.norm(a) * np.linalg.norm(b))
-    if denom == 0:
-        return 0.0
-    return float(np.dot(a, b) / denom)
-
 
 def load_index_and_metadata():
     if not os.path.exists(INDEX_PATH):
@@ -54,57 +46,29 @@ def melody_similarity(path_a: str, path_b: str, sr: int = 22050, hop_length: int
     try:
         y1, _ = librosa.load(path_a, sr=sr, mono=True)
         y2, _ = librosa.load(path_b, sr=sr, mono=True)
-
         C1 = librosa.feature.chroma_cqt(y=y1, sr=sr, hop_length=hop_length)
         C2 = librosa.feature.chroma_cqt(y=y2, sr=sr, hop_length=hop_length)
-
         C1 = C1 / (np.linalg.norm(C1, axis=0, keepdims=True) + 1e-8)
         C2 = C2 / (np.linalg.norm(C2, axis=0, keepdims=True) + 1e-8)
-
         cost = cdist(C1.T, C2.T, metric="cosine")
         D, wp = librosa.sequence.dtw(C=cost)
         total_cost = D[-1, -1]
         path_length = len(wp)
         avg_cost = total_cost / max(path_length, 1)
-
         sim = 1.0 / (1.0 + avg_cost)
         return float(np.clip(sim, 0.0, 1.0))
     except Exception as e:
-        print(f"Melody comparison failed between '{os.path.basename(path_a)}' and '{os.path.basename(path_b)}': {e}")
+        # print(f"Melody comparison failed between '{os.path.basename(path_a)}' and '{os.path.basename(path_b)}': {e}")
         return 0.0
 
 
-def compute_dataset_stats(index, query_vec: np.ndarray, names_len_limit=1000):
-    ntotal = index.ntotal
-    if ntotal == 0:
-        return 0.0, 1.0, np.array([0.0])
-
-    k_all = ntotal if ntotal <= names_len_limit else names_len_limit
-
-    try:
-        if k_all == ntotal:
-            sims, ids = index.search(query_vec.reshape(1, -1).astype('float32'), k_all)
-            sims = sims.flatten()
-        else:
-            if os.path.exists(EMBEDDINGS_PATH):
-                all_emb = np.load(EMBEDDINGS_PATH).astype('float32')
-                n = all_emb.shape[0]
-                idxs = np.random.choice(n, size=k_all, replace=False)
-                sample = all_emb[idxs]
-                sims = (sample @ query_vec).flatten()
-            else:
-                sims, ids = index.search(query_vec.reshape(1, -1).astype('float32'), k_all)
-                sims = sims.flatten()
-    except Exception as e:
-        print("Error computing dataset stats:", e)
-        return 0.0, 1.0, np.array([0.0])
-
-    mean = float(np.mean(sims))
-    std = float(np.std(sims)) if np.std(sims) > 0 else 1.0
-    return mean, std, sims
-
-
-
+def load_precomputed_stats():
+    """Loads the precomputed mean and std for Z-score calculation."""
+    if not os.path.exists(STATS_PATH):
+        raise FileNotFoundError(f"Stats file not found: {STATS_PATH}.\n"
+                                f"Please pre-compute and save your database mean/std for fast Z-scoring.")
+    data = np.load(STATS_PATH)
+    return float(data['mean_sim']), float(data['std_sim'])
 
 
 def check_song(path_to_upload: str):
@@ -114,28 +78,31 @@ def check_song(path_to_upload: str):
 
     print("Extracting OpenL3 embedding...")
     q_emb = extract_openl3_embedding(path_to_upload).astype('float32')
+    # Normalize query vector (this is correct)
     q_emb = q_emb / (np.linalg.norm(q_emb) + 1e-12)
 
     # Load FAISS index and metadata
     index, names = load_index_and_metadata()
 
-    # --- Normalize index vectors for cosine similarity ---
-    print("Normalizing FAISS index vectors for cosine comparison...")
-    xb = index.reconstruct_n(0, index.ntotal)
-    xb = xb / (np.linalg.norm(xb, axis=1, keepdims=True) + 1e-12)
-    new_index = faiss.IndexFlatIP(xb.shape[1])
-    new_index.add(xb)
-    index = new_index
+
+
+    if index.ntotal == 0:
+        print("Error: FAISS index is empty.")
+        return []
 
     print("Querying FAISS index...")
-    k = min(max(TOP_K, 5), index.ntotal) if index.ntotal > 0 else TOP_K
+    k = min(max(TOP_K, 5), index.ntotal)
     Dtop, Itop = index.search(q_emb.reshape(1, -1).astype('float32'), k)
-    Dtop = Dtop.flatten()
+    Dtop = Dtop.flatten()  # Dtop should now be correct cosine similarity [0.0 to 1.0]
     Itop = Itop.flatten()
 
-    mean_sim, std_sim, all_sims = compute_dataset_stats(index, q_emb, names_len_limit=1000)
+    # Load the PRECOMPUTED stats (FAST)
+    mean_sim, std_sim = load_precomputed_stats()
 
     results = []
+    top_fused = 0.0
+    top_fused_name = "N/A"
+
     for rank, (sim_val, idx) in enumerate(zip(Dtop, Itop), start=1):
         if idx < 0 or idx >= len(names):
             name = f"track_{idx}"
@@ -153,8 +120,13 @@ def check_song(path_to_upload: str):
                 candidate_path = variant
                 break
 
-        melody_sim = melody_similarity(path_to_upload, candidate_path) if candidate_path else 0.0
         audio_sim = float(sim_val)
+        melody_sim = 0.0
+
+        # --- OPTIMIZATION: Conditional Melody Check ---
+        if rank <= MELODY_CHECK_LIMIT and candidate_path:
+            melody_sim = melody_similarity(path_to_upload, candidate_path)
+
         fused = WEIGHT_AUDIO * audio_sim + WEIGHT_MELODY * melody_sim
 
         results.append({
@@ -167,41 +139,75 @@ def check_song(path_to_upload: str):
             "candidate_path": candidate_path or ""
         })
 
+    # --- NEW: Re-sort results based on the final fused score ---
+    results.sort(key=lambda x: x["fused"], reverse=True)
+
+    # Re-calculate top_fused and top_fused_name from the sorted list
     top_fused = results[0]["fused"] if results else 0.0
-    z_score = (top_fused - mean_sim) / (std_sim + 1e-12)
+    top_fused_name = results[0]["name"] if results else "N/A"
+    # Update ranks for printing
+    for i, r in enumerate(results, 1):
+        r["rank"] = i
 
-    fused_values = np.array([r["fused"] for r in results])
-    fused_mean = float(np.mean(fused_values)) if fused_values.size > 0 else 0.0
-    fused_std = float(np.std(fused_values)) if fused_values.size > 0 else 1.0
-    fused_z = (top_fused - fused_mean) / (fused_std + 1e-12)
+    # --- Corrected Z-Score Logic ---
+    # We must compare the top AUDIO score against the AUDIO distribution
+    top_audio_sim = results[0]["audio_sim"] if results else 0.0
 
-    print("\nAlignment check: index contains", index.ntotal, "items\n")
+    # Calculate Z-score using the top AUDIO score, not the fused score
+    z_score = (top_audio_sim - mean_sim) / (std_sim + 1e-12)
+
+    print("\n🎧 Alignment check: index contains", index.ntotal, "items\n")
+
+
+
+
+
     print("Top matches (audio + melody + fused):\n")
     for r in results:
-        print(f"{r['rank']}. {r['name']}")
+        melody_check_status = ""
+        if r['melody_sim'] > 0 and r['rank'] <= MELODY_CHECK_LIMIT:
+            melody_check_status = "(DTW Checked)"
+        elif r['melody_sim'] == 0 and r['rank'] <= MELODY_CHECK_LIMIT:
+            melody_check_status = "(DTW Failed/No Path)"
+        elif r['rank'] > MELODY_CHECK_LIMIT:
+            melody_check_status = "(DTW Skipped)"
+
+        print(f"{r['rank']}. {r['name']} {melody_check_status}")
         print(f"   audio_sim (OpenL3 cosine): {r['audio_sim']:.4f}")
         print(f"   melody_sim (chroma+DTW):  {r['melody_sim']:.4f}")
         print(f"   fused_score (weighted):   {r['fused']:.4f}")
-        print(f"   candidate_path: {r['candidate_path'] or 'N/A'}\n")
 
-    print("Summary:")
-    print(f"  Top fused score: {top_fused:.4f}")
+    print("\nSummary:")
+    print(f"  Top fused score: {top_fused:.4f} (from {top_fused_name})")
     print(f"  Audio distribution mean/std: {mean_sim:.4f} / {std_sim:.4f}")
     print(f"  Z-score (vs audio distribution): {z_score:.3f}")
-    print(f"  Z-score (vs top-k fused): {fused_z:.3f}")
 
-    # --- Decision thresholds for cosine-scale scores ---
+    # --- Decision thresholds ---
+    decision = ""
     if top_fused >= 0.9 or z_score > Z_THRESHOLD:
-        print("\nDecision:  Possible plagiarism — strong similarity, manual review required.")
+        decision = f"🔴 Possible plagiarism — strong similarity with {top_fused_name}, manual review required."
+        print("\nDecision: " + decision)
     elif top_fused >= 0.8:
-        print("\nDecision: ⚠ High similarity — plausible plagiarism, manual review recommended.")
+        decision = f"🟠 High similarity — plausible plagiarism with {top_fused_name}, manual review recommended."
+        print("\nDecision: " + decision)
     elif top_fused >= 0.7:
-        print("\nDecision: Moderate similarity — suspicious, manual review advised.")
+        decision = f"🟡 Moderate similarity — suspicious with {top_fused_name}, manual review advised."
+        print("\nDecision: " + decision)
     else:
-        print("\nDecision:  No critical similarity detected.")
+        decision = "🟢 No critical similarity detected."
+        print("\nDecision: " + decision)
 
     print("\nDone.")
 
+    # --- RETURN THE RESULTS ---
+    return {
+        "top_fused_score": top_fused,
+        "mean_similarity": mean_sim,
+        "std_similarity": std_sim,
+        "z_score": z_score,
+        "decision": decision,
+        "top_matches": results
+    }
 
 
 if __name__ == "__main__":
