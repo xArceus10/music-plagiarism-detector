@@ -16,7 +16,7 @@ headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
 # --- Base Paths (relative to this script) ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
-PREVIEWS_DIR = os.path.join(BASE_DIR, "spotify_previews")
+PREVIEWS_DIR = os.path.join(BASE_DIR, "songs")
 LYRICS_DIR = os.path.join(BASE_DIR, "lyrics")
 
 
@@ -41,7 +41,7 @@ def clean_lyrics(raw_text):
 
 
 def fetch_lyrics(song_title, artist_name=""):
-    # (Your fetch_lyrics function is perfect, no changes)
+
     print(f"Searching Genius for '{song_title} {artist_name}'...")
     search_url = f"{GENIUS_API_BASE}/search"
     params = {"q": f"{song_title} {artist_name}".strip()}
@@ -87,7 +87,7 @@ def parse_filename(filename):
 
 
 def fetch_lyrics_from_previews():
-    """Go through preview MP3s and fetch matching lyrics into data/lyrics."""
+
     os.makedirs(LYRICS_DIR, exist_ok=True)
     for file in os.listdir(PREVIEWS_DIR):
         if not file.endswith(".mp3"):
