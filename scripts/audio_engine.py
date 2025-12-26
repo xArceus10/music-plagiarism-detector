@@ -8,41 +8,31 @@ import librosa
 import difflib
 from scipy.spatial.distance import cdist
 
-# --- PATH SETUP (Essential for App) ---
-# Current file is in: .../Music_Plagarism_Detector/scripts/
+# --- SETUP PATHS ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Go up one level to get Project Root: .../Music_Plagarism_Detector/
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
 sys.path.append(ROOT_DIR)
 
-# Import utils
 try:
     from utils.openl3_utils import extract_openl3_embedding
     from utils.model_def import AudioAdapter
 except ImportError:
     print("❌ Audio Engine: Could not import utils. Check sys.path.")
 
-# --- CONFIG (Matches your original) ---
+# --- CONFIG ---
 SONGS_DIR = os.path.join(ROOT_DIR, "data", "songs")
 AUDIO_INDEX_PATH = os.path.join(ROOT_DIR, "data", "audio_chunked.faiss")
 AUDIO_META_PATH = os.path.join(ROOT_DIR, "data", "audio_chunked_meta.json")
 MODEL_PATH = os.path.join(ROOT_DIR, "models", "audio_adapter.pth")
 
-# --- GLOBALS (Lazy Loading to prevent crashing) ---
-# We load these once so the app doesn't freeze on every upload
+# --- GLOBALS ---
 LOADED_INDEX = None
 LOADED_META = None
 LOADED_MODEL = None
 
 
 def init_audio_resources():
-    """
-    Loads resources exactly like your original script, but stores them
-    in memory so we don't reload them 100 times.
-    """
     global LOADED_INDEX, LOADED_META, LOADED_MODEL
-
-    # 1. Load Model
     if os.path.exists(MODEL_PATH):
         try:
             LOADED_MODEL = AudioAdapter()
@@ -52,7 +42,6 @@ def init_audio_resources():
         except Exception as e:
             print(f"⚠️ [Audio Engine] Model Error: {e}")
 
-    # 2. Load Index & Meta
     if os.path.exists(AUDIO_INDEX_PATH):
         try:
             LOADED_INDEX = faiss.read_index(AUDIO_INDEX_PATH)
@@ -63,21 +52,14 @@ def init_audio_resources():
             print(f"⚠️ [Audio Engine] Index Error: {e}")
 
 
-# --- YOUR ORIGINAL HELPER FUNCTIONS ---
-
 def find_local_file(name, folder):
-    # Try exact
     p = os.path.join(folder, name)
     if os.path.exists(p): return p
-
-    # Try clean name
     clean = name.replace("..", "").strip()
     if os.path.exists(folder):
-        files = os.listdir(folder)
-        # Fuzzy match
+        files = [f for f in os.listdir(folder) if f.endswith('.mp3')]
         matches = difflib.get_close_matches(clean, files, n=1, cutoff=0.5)
-        if matches:
-            return os.path.join(folder, matches[0])
+        if matches: return os.path.join(folder, matches[0])
     return None
 
 
@@ -89,21 +71,20 @@ def run_dtw(path1, path2):
         c2 = librosa.feature.chroma_cqt(y=y2, sr=sr)
         D, wp = librosa.sequence.dtw(C=cdist(c1.T, c2.T, 'cosine'))
         cost = D[-1, -1] / wp.shape[0]
-        return 1.0 - cost  # EXACT original calculation
+
+        # SQUARED SCORE REDUCTION (Punish weak matches)
+        sim = 1.0 - cost
+        return (sim ** 2) * 100
     except:
         return 0.0
 
 
-# --- MAIN LOGIC (Wrapped for App) ---
-
 def scan_audio(audio_path):
-    # Ensure resources are loaded
     if LOADED_INDEX is None: init_audio_resources()
     if LOADED_INDEX is None: return []
 
     print(f"\n🔍 [Audio Engine] Analyzing: {os.path.basename(audio_path)}")
 
-    # 1. Extract & Transform (Your exact logic)
     raw_emb = extract_openl3_embedding(audio_path)
     if raw_emb is None: return []
     if raw_emb.ndim == 1: raw_emb = raw_emb.reshape(1, -1)
@@ -113,41 +94,35 @@ def scan_audio(audio_path):
         with torch.no_grad():
             Q = LOADED_MODEL(torch.from_numpy(Q).float()).numpy()
     else:
-        # Your exact fallback normalization
         Q = Q / (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-12)
 
-    # 2. Search
     D, I = LOADED_INDEX.search(Q, k=1)
 
-    # 3. Vote
     votes = {}
     for dist, idx in zip(D.flatten(), I.flatten()):
-        # YOUR ORIGINAL THRESHOLD
         if idx == -1 or dist < 0.65: continue
-
         name = LOADED_META[idx]['name']
         votes[name] = votes.get(name, 0) + 1
 
-    # Top Audio Candidates
-    sorted_votes = sorted(votes.items(), key=lambda x: x[1], reverse=True)[:3]
+    # --- CHANGED TO TOP 5 HERE ---
+    sorted_votes = sorted(votes.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    # 4. Verification & Formatting Results
     final_results = []
-
     for name, count in sorted_votes:
-        # Run Verification (DTW)
         local_path = find_local_file(name, SONGS_DIR)
         dtw_score = 0.0
-
         if local_path:
             print(f"      Verifying melody with: {name}")
             dtw_score = run_dtw(audio_path, local_path)
 
-        # Append to results in the format App.py needs
-        # We multiply by 100 to make it a percentage for the UI
-        final_results.append({
-            "song": name,
-            "score": round(dtw_score * 100, 2)
-        })
+        if dtw_score > 10.0:
+            final_results.append({
+                "song": name,
+                "score": round(dtw_score, 2)
+            })
+        # Sort by score (highest first)
+        final_results.sort(key=lambda x: x['score'], reverse=True)
 
+        # Slice the list to keep only the top 5
+        final_results = final_results[:5]
     return final_results
