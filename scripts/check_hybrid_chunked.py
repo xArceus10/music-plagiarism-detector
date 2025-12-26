@@ -6,7 +6,7 @@ import numpy as np
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
-from scripts.check_audio_chunked import check_song_chunks
+from scripts.check_audio_chunked import hybrid_check
 from scripts.check_lyrics_similarity import query_file as check_lyrics
 
 UPLOADS_DIR = os.path.join(ROOT_DIR, "data", "uploads")
@@ -22,7 +22,7 @@ def hybrid_check(audio_path, lyrics_path=None):
     print("🎧 Running CHUNKED Hybrid Check...")
 
     # 1. Run Chunked Audio Check
-    audio_data = check_song_chunks(audio_path)
+    audio_data = hybrid_check(audio_path)
     audio_matches = audio_data.get("top_matches", [])
     top_audio = audio_data.get("top_fused_score", 0.0)
 
