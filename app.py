@@ -14,7 +14,6 @@ SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
 # Add scripts to system path so we can import them
 if os.path.exists(SCRIPTS_DIR):
     sys.path.append(SCRIPTS_DIR)
-    print(f"✅ Added to path: {SCRIPTS_DIR}")
 else:
     print(f"❌ ERROR: Could not find folder: {SCRIPTS_DIR}")
     print("   Please ensure 'audio_engine.py' is inside a folder named 'scripts' next to app.py")
